@@ -887,7 +887,7 @@
             
             document.getElementById('resultFrom').textContent = data.from_city;
             document.getElementById('resultTo').textContent = data.to_city;
-            document.getElementById('resultDistance').textContent = `距离：${data.distance} 公里`;
+            document.getElementById('resultDistance').textContent = `距离：${data.distance} 公里 | 区域：${data.region || '未知'} | 国家：${data.country || '未知'}`;
             document.getElementById('resultPrice').textContent = Number(data.price).toLocaleString();
             document.getElementById('resultMeta').textContent = `车型：${data.vehicle}`;
             

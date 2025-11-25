@@ -52,11 +52,77 @@ CITY_COORDINATES = {
     '第比利斯': (41.7151, 44.8271),      # 距霍尔果斯2894km，高加索地区
 }
 
+# 城市所属国家
+CITY_COUNTRY = {
+    '霍尔果斯': '中国',
+    '阿拉木图': '哈萨克斯坦',
+    '阿斯塔纳': '哈萨克斯坦',
+    '卡拉干达': '哈萨克斯坦',
+    '希姆肯特': '哈萨克斯坦',
+    '阿克托别': '哈萨克斯坦',
+    '塔什干': '乌兹别克斯坦',
+    '撒马尔罕': '乌兹别克斯坦',
+    '比什凯克': '吉尔吉斯斯坦',
+    '莫斯科': '俄罗斯',
+    '新西伯利亚': '俄罗斯',
+    '叶卡捷琳堡': '俄罗斯',
+    '阿塞拜疆': '阿塞拜疆',
+    '第比利斯': '格鲁吉亚',
+}
+
+# 城市所属区域
+# 中亚: 哈萨克斯坦、乌兹别克斯坦、吉尔吉斯斯坦（距离近，运费相对低）
+# 俄罗斯: 俄罗斯各城市（距离远，运费高）
+# 高加索: 阿塞拜疆、格鲁吉亚（距离远，路线复杂，运费最高）
+CITY_REGION = {
+    '霍尔果斯': '中国',
+    '阿拉木图': '中亚',
+    '阿斯塔纳': '中亚',
+    '卡拉干达': '中亚',
+    '希姆肯特': '中亚',
+    '阿克托别': '中亚',
+    '塔什干': '中亚',
+    '撒马尔罕': '中亚',
+    '比什凯克': '中亚',
+    '莫斯科': '俄罗斯',
+    '新西伯利亚': '俄罗斯',
+    '叶卡捷琳堡': '俄罗斯',
+    '阿塞拜疆': '高加索',
+    '第比利斯': '高加索',
+}
+
+# 区域编码（用于模型特征）
+REGION_CODE = {
+    '中国': 0,
+    '中亚': 1,
+    '俄罗斯': 2,
+    '高加索': 3,
+}
+
 # Excel中有历史数据的城市
 CITIES_WITH_HISTORY = ['阿拉木图', '阿斯塔纳', '塔什干', '莫斯科', '阿塞拜疆']
 
 # 所有可选城市（排除霍尔果斯作为唯一出发地）
 ALL_CITIES = list(CITY_COORDINATES.keys())
+
+
+def get_city_features(city):
+    """获取城市的特征：是否跨国、区域编码"""
+    country = CITY_COUNTRY.get(city, '未知')
+    region = CITY_REGION.get(city, '中亚')
+    
+    # 是否跨国（相对于中国）
+    is_cross_country = 1 if country != '中国' else 0
+    
+    # 区域编码
+    region_code = REGION_CODE.get(region, 1)
+    
+    return {
+        'is_cross_country': is_cross_country,
+        'region_code': region_code,
+        'country': country,
+        'region': region
+    }
 
 
 class Predictor:
@@ -91,7 +157,7 @@ class Predictor:
         return None
     
     def prepare_and_train(self, from_city='霍尔果斯'):
-        """准备数据并训练模型"""
+        """准备数据并训练模型（使用多特征：距离、是否跨国、区域）"""
         training_records = []
         
         # 处理Excel历史数据
@@ -103,9 +169,12 @@ class Predictor:
             if city and not pd.isna(price):
                 distance = self.get_distance(from_city, city)
                 if distance:
+                    city_features = get_city_features(city)
                     training_records.append({
                         'city': city,
                         'distance': distance,
+                        'is_cross_country': city_features['is_cross_country'],
+                        'region_code': city_features['region_code'],
                         'price': float(price),
                         'vehicle': vehicle,
                     })
@@ -116,10 +185,13 @@ class Predictor:
                 to_city = record.get('to_city')
                 distance = self.get_distance(from_city, to_city)
                 if distance:
+                    city_features = get_city_features(to_city)
                     for _ in range(3):  # 今日数据重复3次
                         training_records.append({
                             'city': to_city,
                             'distance': distance,
+                            'is_cross_country': city_features['is_cross_country'],
+                            'region_code': city_features['region_code'],
                             'price': float(record['price']),
                             'vehicle': record['vehicle'],
                         })
@@ -130,11 +202,14 @@ class Predictor:
         train_df = pd.DataFrame(training_records)
         self.vehicle_types = sorted(train_df['vehicle'].unique().tolist())
         
+        # 特征列：距离、是否跨国、区域编码
+        feature_cols = ['distance', 'is_cross_country', 'region_code']
+        
         # 按车型训练模型
         for vehicle in self.vehicle_types:
             vehicle_data = train_df[train_df['vehicle'] == vehicle]
             if len(vehicle_data) >= 3:
-                X = vehicle_data[['distance']].values
+                X = vehicle_data[feature_cols].values
                 y = vehicle_data['price'].values
                 
                 scaler = StandardScaler()
@@ -147,7 +222,7 @@ class Predictor:
                 self.scalers[vehicle] = scaler
         
         # 通用模型
-        X_all = train_df[['distance']].values
+        X_all = train_df[feature_cols].values
         y_all = train_df['price'].values
         
         scaler_all = StandardScaler()
@@ -162,7 +237,7 @@ class Predictor:
         return True
     
     def predict(self, from_city, to_city, vehicle_type='通用'):
-        """预测运费"""
+        """预测运费（使用多特征：距离、是否跨国、区域）"""
         distance = self.get_distance(from_city, to_city)
         if distance is None:
             return None, f"无法计算 {from_city} 到 {to_city} 的距离"
@@ -175,7 +250,15 @@ class Predictor:
         model = self.models[vehicle_type]
         scaler = self.scalers[vehicle_type]
         
-        X = np.array([[distance]])
+        # 获取目的地城市特征
+        city_features = get_city_features(to_city)
+        
+        # 构建特征向量：[距离, 是否跨国, 区域编码]
+        X = np.array([[
+            distance,
+            city_features['is_cross_country'],
+            city_features['region_code']
+        ]])
         X_scaled = scaler.transform(X)
         predicted = model.predict(X_scaled)[0]
         
@@ -188,7 +271,9 @@ class Predictor:
             'price': round(max(predicted, 0), 2),
             'vehicle': vehicle_type,
             'has_history': has_history,
-            'is_prediction': not has_history
+            'is_prediction': not has_history,
+            'region': city_features['region'],
+            'country': city_features['country']
         }, None
 
 

@@ -21,6 +21,6 @@ pip install -r requirements.txt -q
 
 # 启动应用
 echo "✅ 启动服务..."
-echo "访问地址: http://localhost:5000"
+echo "访问地址: http://localhost:3000"
 python app.py
 

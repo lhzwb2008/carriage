@@ -15,6 +15,7 @@
             --accent: #00d4aa;
             --accent-glow: rgba(0, 212, 170, 0.2);
             --warning: #f59e0b;
+            --danger: #ef4444;
             --text-primary: #e7e9ea;
             --text-secondary: #71767b;
             --border: #2f3336;
@@ -30,7 +31,7 @@
         }
 
         .container {
-            max-width: 800px;
+            max-width: 900px;
             margin: 0 auto;
             padding: 30px 20px;
         }
@@ -170,6 +171,52 @@
             transform: translateY(-1px);
         }
 
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 0.75rem;
+            border-radius: 6px;
+        }
+
+        .btn-edit {
+            background: rgba(139, 92, 246, 0.2);
+            color: var(--predict-color);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+        }
+
+        .btn-edit:hover {
+            background: rgba(139, 92, 246, 0.3);
+        }
+
+        .btn-delete {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--danger);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .btn-delete:hover {
+            background: rgba(239, 68, 68, 0.3);
+        }
+
+        .btn-save {
+            background: rgba(0, 186, 124, 0.2);
+            color: var(--success);
+            border: 1px solid rgba(0, 186, 124, 0.3);
+        }
+
+        .btn-save:hover {
+            background: rgba(0, 186, 124, 0.3);
+        }
+
+        .btn-cancel {
+            background: rgba(113, 118, 123, 0.2);
+            color: var(--text-secondary);
+            border: 1px solid rgba(113, 118, 123, 0.3);
+        }
+
+        .btn-cancel:hover {
+            background: rgba(113, 118, 123, 0.3);
+        }
+
         /* Result */
         .result-box {
             display: none;
@@ -230,13 +277,13 @@
         .badge-today { background: rgba(245, 158, 11, 0.2); color: var(--warning); }
 
         /* Today list */
-        .today-list { max-height: 350px; overflow-y: auto; }
+        .today-list { max-height: 500px; overflow-y: auto; }
 
         .today-item {
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr auto;
+            grid-template-columns: 1.5fr 1fr 1fr 0.8fr auto;
             gap: 10px;
-            padding: 10px 0;
+            padding: 12px 0;
             border-bottom: 1px solid var(--border);
             align-items: center;
             font-size: 0.85rem;
@@ -245,8 +292,26 @@
         .today-item:last-child { border-bottom: none; }
         .today-route { color: var(--text-primary); }
         .today-vehicle { color: var(--text-secondary); font-size: 0.8rem; }
-        .today-price { color: var(--warning); font-weight: 600; text-align: right; }
+        .today-price { color: var(--warning); font-weight: 600; }
         .today-time { color: var(--text-secondary); font-size: 0.75rem; }
+        .today-actions {
+            display: flex;
+            gap: 6px;
+        }
+
+        /* Edit mode */
+        .today-item.editing {
+            background: rgba(139, 92, 246, 0.05);
+            padding: 12px;
+            margin: -12px 0;
+            border-radius: 8px;
+        }
+
+        .today-item.editing input,
+        .today-item.editing select {
+            padding: 8px 10px;
+            font-size: 0.8rem;
+        }
 
         .empty-state {
             text-align: center;
@@ -277,6 +342,52 @@
             font-size: 0.85rem;
         }
 
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 25px;
+            border: 1px solid var(--border);
+            max-width: 400px;
+            width: 90%;
+        }
+
+        .modal-title {
+            font-size: 1rem;
+            font-weight: 500;
+            margin-bottom: 15px;
+            color: var(--text-primary);
+        }
+
+        .modal-body {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 20px;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
         /* City option styling */
         .city-history { color: var(--success); }
         .city-predict { color: var(--predict-color); }
@@ -287,8 +398,15 @@
 
         @media (max-width: 600px) {
             .form-row { grid-template-columns: 1fr; }
-            .today-item { grid-template-columns: 1fr 1fr; }
+            .today-item { 
+                grid-template-columns: 1fr 1fr;
+                gap: 8px;
+            }
             .today-vehicle, .today-time { display: none; }
+            .today-actions { 
+                grid-column: span 2;
+                justify-content: flex-end;
+            }
             .stats-bar { flex-wrap: wrap; gap: 10px; }
         }
     </style>
@@ -399,6 +517,22 @@
                         <div>今日暂无录入数据</div>
                     </div>
                 </div>
+                <div id="todaySuccess" class="success-box" style="display:none;"></div>
+                <div id="todayError" class="error-box" style="display:none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 删除确认弹窗 -->
+    <div class="modal-overlay" id="deleteModal">
+        <div class="modal">
+            <div class="modal-title">⚠️ 确认删除</div>
+            <div class="modal-body" id="deleteModalBody">
+                确定要删除这条记录吗？此操作不可恢复。
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-small btn-cancel" onclick="closeDeleteModal()">取消</button>
+                <button class="btn btn-small btn-delete" onclick="confirmDelete()">删除</button>
             </div>
         </div>
     </div>
@@ -406,10 +540,13 @@
     <script>
         let citiesData = [];
         let vehicleTypes = [];
+        let todayRecords = [];
+        let editingId = null;
+        let deleteId = null;
 
         // 计算两点之间的距离（Haversine公式）
         function calcDistance(lat1, lng1, lat2, lng2) {
-            const R = 6371; // 地球半径（公里）
+            const R = 6371;
             const dLat = (lat2 - lat1) * Math.PI / 180;
             const dLng = (lng2 - lng1) * Math.PI / 180;
             const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
@@ -419,7 +556,6 @@
             return Math.round(R * c);
         }
 
-        // 获取城市坐标
         function getCityCoords(cityName) {
             const city = citiesData.find(c => c.name === cityName);
             return city ? { lat: city.lat, lng: city.lng } : null;
@@ -433,7 +569,6 @@
                 loadTodayData()
             ]);
             
-            // 出发地变化时更新目的地显示
             document.getElementById('fromCity').addEventListener('change', () => updateDestOptions('toCity', 'fromCity'));
             document.getElementById('inputFromCity').addEventListener('change', () => updateDestOptions('inputToCity', 'inputFromCity'));
             
@@ -461,7 +596,6 @@
             const data = await res.json();
             citiesData = data.cities;
             
-            // 填充出发地下拉框（不显示距离）
             ['fromCity', 'inputFromCity'].forEach(id => {
                 const select = document.getElementById(id);
                 select.innerHTML = '';
@@ -477,23 +611,19 @@
                 });
             });
             
-            // 默认选择霍尔果斯
             document.getElementById('fromCity').value = '霍尔果斯';
             document.getElementById('inputFromCity').value = '霍尔果斯';
             
-            // 填充目的地（根据出发地计算距离）
             updateDestOptions('toCity', 'fromCity');
             updateDestOptions('inputToCity', 'inputFromCity');
         }
         
-        // 更新目的地选项（根据出发地动态计算距离）
         function updateDestOptions(destSelectId, fromSelectId) {
             const fromCity = document.getElementById(fromSelectId).value;
             const fromCoords = getCityCoords(fromCity);
             const select = document.getElementById(destSelectId);
             const currentValue = select.value;
             
-            // 计算每个城市到出发地的距离
             let options = citiesData.map(city => {
                 let dist = 0;
                 if (fromCoords && city.name !== fromCity) {
@@ -502,14 +632,12 @@
                 return { ...city, distance: dist };
             });
             
-            // 按距离排序（出发地排第一，距离0的排前面）
             options.sort((a, b) => {
                 if (a.name === fromCity) return -1;
                 if (b.name === fromCity) return 1;
                 return a.distance - b.distance;
             });
             
-            // 重新填充选项
             select.innerHTML = '';
             options.forEach(city => {
                 const option = document.createElement('option');
@@ -528,7 +656,6 @@
                 select.appendChild(option);
             });
             
-            // 恢复之前的选择，或选择第一个非出发地城市
             if (currentValue && currentValue !== fromCity) {
                 select.value = currentValue;
             } else {
@@ -558,13 +685,18 @@
         async function loadTodayData() {
             const res = await fetch('/api/today');
             const data = await res.json();
+            todayRecords = data.records;
             
             document.getElementById('todayBadge').textContent = data.count + ' 条';
             document.getElementById('todayCount').textContent = data.count;
             
+            renderTodayList();
+        }
+
+        function renderTodayList() {
             const container = document.getElementById('todayList');
             
-            if (data.records.length === 0) {
+            if (todayRecords.length === 0) {
                 container.innerHTML = `
                     <div class="empty-state">
                         <div class="empty-icon">📭</div>
@@ -574,14 +706,153 @@
                 return;
             }
             
-            container.innerHTML = data.records.map(r => `
-                <div class="today-item">
-                    <div class="today-route">${r.from_city} → ${r.to_city}</div>
-                    <div class="today-vehicle">${r.vehicle}</div>
-                    <div class="today-price">¥${Number(r.price).toLocaleString()}</div>
-                    <div class="today-time">${r.time}</div>
+            container.innerHTML = todayRecords.map(r => {
+                if (editingId === r.id) {
+                    return renderEditRow(r);
+                }
+                return `
+                    <div class="today-item" data-id="${r.id}">
+                        <div class="today-route">${r.from_city} → ${r.to_city}</div>
+                        <div class="today-vehicle">${r.vehicle}</div>
+                        <div class="today-price">¥${Number(r.price).toLocaleString()}</div>
+                        <div class="today-time">${r.time}${r.updated_time ? ' (已修改)' : ''}</div>
+                        <div class="today-actions">
+                            <button class="btn btn-small btn-edit" onclick="startEdit(${r.id})">编辑</button>
+                            <button class="btn btn-small btn-delete" onclick="showDeleteModal(${r.id})">删除</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderEditRow(record) {
+            const cityOptions = citiesData.map(c => 
+                `<option value="${c.name}" ${c.name === record.from_city ? 'selected' : ''}>${c.name}</option>`
+            ).join('');
+            
+            const destOptions = citiesData.map(c => 
+                `<option value="${c.name}" ${c.name === record.to_city ? 'selected' : ''}>${c.name}</option>`
+            ).join('');
+            
+            const vehicleOptions = vehicleTypes.map(v => 
+                `<option value="${v}" ${v === record.vehicle ? 'selected' : ''}>${v}</option>`
+            ).join('');
+            
+            return `
+                <div class="today-item editing" data-id="${record.id}">
+                    <div>
+                        <select id="edit-from-${record.id}" style="margin-bottom:8px;">${cityOptions}</select>
+                        <select id="edit-to-${record.id}">${destOptions}</select>
+                    </div>
+                    <div>
+                        <select id="edit-vehicle-${record.id}">${vehicleOptions}</select>
+                    </div>
+                    <div>
+                        <input type="number" id="edit-price-${record.id}" value="${record.price}" min="0" step="0.01">
+                    </div>
+                    <div class="today-time">${record.time}</div>
+                    <div class="today-actions">
+                        <button class="btn btn-small btn-save" onclick="saveEdit(${record.id})">保存</button>
+                        <button class="btn btn-small btn-cancel" onclick="cancelEdit()">取消</button>
+                    </div>
                 </div>
-            `).join('');
+            `;
+        }
+
+        function startEdit(id) {
+            editingId = id;
+            renderTodayList();
+        }
+
+        function cancelEdit() {
+            editingId = null;
+            renderTodayList();
+        }
+
+        async function saveEdit(id) {
+            const fromCity = document.getElementById(`edit-from-${id}`).value;
+            const toCity = document.getElementById(`edit-to-${id}`).value;
+            const vehicle = document.getElementById(`edit-vehicle-${id}`).value;
+            const price = document.getElementById(`edit-price-${id}`).value;
+            
+            hideMessages('today');
+            
+            if (fromCity === toCity) {
+                showError('today', '出发地和目的地不能相同');
+                return;
+            }
+            
+            if (!price || parseFloat(price) <= 0) {
+                showError('today', '请输入有效的价格');
+                return;
+            }
+            
+            try {
+                const res = await fetch(`/api/record/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ from_city: fromCity, to_city: toCity, vehicle, price })
+                });
+                
+                const data = await res.json();
+                
+                if (data.error) {
+                    showError('today', data.error);
+                    return;
+                }
+                
+                editingId = null;
+                showSuccess('today', '记录已更新');
+                await loadTodayData();
+                loadStats();
+            } catch (err) {
+                showError('today', '更新失败，请重试');
+            }
+        }
+
+        function showDeleteModal(id) {
+            deleteId = id;
+            const record = todayRecords.find(r => r.id === id);
+            if (record) {
+                document.getElementById('deleteModalBody').innerHTML = 
+                    `确定要删除这条记录吗？<br><br>` +
+                    `<strong>${record.from_city} → ${record.to_city}</strong><br>` +
+                    `车型: ${record.vehicle}，运费: ¥${Number(record.price).toLocaleString()}`;
+            }
+            document.getElementById('deleteModal').classList.add('show');
+        }
+
+        function closeDeleteModal() {
+            deleteId = null;
+            document.getElementById('deleteModal').classList.remove('show');
+        }
+
+        async function confirmDelete() {
+            if (!deleteId) return;
+            
+            hideMessages('today');
+            
+            try {
+                const res = await fetch(`/api/record/${deleteId}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await res.json();
+                
+                if (data.error) {
+                    showError('today', data.error);
+                    closeDeleteModal();
+                    return;
+                }
+                
+                closeDeleteModal();
+                showSuccess('today', '记录已删除');
+                await loadTodayData();
+                loadStats();
+            } catch (err) {
+                showError('today', '删除失败，请重试');
+                closeDeleteModal();
+            }
         }
 
         async function predict() {
@@ -690,6 +961,13 @@
                 document.getElementById('predictResult').classList.remove('show');
             }
         }
+
+        // 点击弹窗外部关闭
+        document.getElementById('deleteModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeDeleteModal();
+            }
+        });
 
         init();
     </script>

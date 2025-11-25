@@ -205,25 +205,66 @@ def load_today_data():
         return []
 
 
-def save_today_record(record):
-    """保存一条今日录入的记录"""
-    data = []
-    if os.path.exists(TODAY_DATA_FILE):
-        try:
-            with open(TODAY_DATA_FILE, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-        except:
-            data = []
-    
-    record['date'] = date.today().isoformat()
-    record['time'] = datetime.now().strftime('%H:%M:%S')
-    record['id'] = len(data) + 1
-    data.append(record)
-    
+def load_all_data():
+    """加载所有数据"""
+    if not os.path.exists(TODAY_DATA_FILE):
+        return []
+    try:
+        with open(TODAY_DATA_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except:
+        return []
+
+
+def save_all_data(data):
+    """保存所有数据"""
     with open(TODAY_DATA_FILE, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def save_today_record(record):
+    """保存一条今日录入的记录"""
+    data = load_all_data()
     
+    # 生成唯一ID
+    max_id = max([d.get('id', 0) for d in data], default=0)
+    record['date'] = date.today().isoformat()
+    record['time'] = datetime.now().strftime('%H:%M:%S')
+    record['id'] = max_id + 1
+    data.append(record)
+    
+    save_all_data(data)
     return record
+
+
+def update_record(record_id, updates):
+    """更新一条记录"""
+    data = load_all_data()
+    
+    for i, record in enumerate(data):
+        if record.get('id') == record_id:
+            # 只更新允许的字段
+            for field in ['from_city', 'to_city', 'vehicle', 'price']:
+                if field in updates:
+                    data[i][field] = updates[field]
+            data[i]['updated_time'] = datetime.now().strftime('%H:%M:%S')
+            save_all_data(data)
+            return data[i]
+    
+    return None
+
+
+def delete_record(record_id):
+    """删除一条记录"""
+    data = load_all_data()
+    
+    for i, record in enumerate(data):
+        if record.get('id') == record_id:
+            deleted = data.pop(i)
+            save_all_data(data)
+            return deleted
+    
+    return None
 
 
 # 全局预测器
@@ -300,6 +341,38 @@ def api_today():
         'records': records,
         'count': len(records)
     })
+
+
+@app.route('/api/record/<int:record_id>', methods=['PUT'])
+def api_update_record(record_id):
+    """更新一条记录"""
+    data = request.json
+    
+    # 验证价格
+    if 'price' in data:
+        try:
+            price = float(data['price'])
+            if price <= 0:
+                return jsonify({'error': '价格必须大于0'})
+            data['price'] = price
+        except:
+            return jsonify({'error': '价格格式不正确'})
+    
+    updated = update_record(record_id, data)
+    if updated:
+        return jsonify({'success': True, 'record': updated})
+    else:
+        return jsonify({'error': '记录不存在'}), 404
+
+
+@app.route('/api/record/<int:record_id>', methods=['DELETE'])
+def api_delete_record(record_id):
+    """删除一条记录"""
+    deleted = delete_record(record_id)
+    if deleted:
+        return jsonify({'success': True, 'deleted': deleted})
+    else:
+        return jsonify({'error': '记录不存在'}), 404
 
 
 @app.route('/api/vehicles')
